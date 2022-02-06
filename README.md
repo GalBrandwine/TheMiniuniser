@@ -1,2 +1,7 @@
-# TheMiniuniser
-A friendly &amp; helpfull google-calendaer meeting tracker
+# TheMinioniser
+
+A friendly & helpful google-calendar meeting tracker
+
+## Possible errors:
+
+1. 
