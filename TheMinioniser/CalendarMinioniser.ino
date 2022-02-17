@@ -1,9 +1,9 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-//Your Domain name with URL path or IP address with path
-String serverName = "https://www.googleapis.com/calendar/v3/calendars/gbrandwine@augury.com/events/?timeMax%3D2022-01-24T00%3A00%3A00%2B02%3A00&q=gbrandwine&timeMin%3D2022-01-23T00%3A00%3A00%2B02%3A00&fields=items";
-
+// Your Domain name with URL path or IP address with path
+String serverName = "https://www.googleapis.com/calendar/v3/calendars/gbrandwine@augury.com/events?q=gbrandwine&orderBy=updated&fields=items&timeMax=2022-02-17T18%3A00%3A00.000%2B02%3A00&timeMin=2022-02-17T09%3A00%3A00.000%2B02%3A00";
+String refreshToken = "https://oauth2.googleapis.com/token";
 /*
 https://www.googleapis.com/calendar/v3/calendars/gbrandwine@augury.com/events/?timeMax%3D2022-01-24T00%3A00%3A00%2B02%3A00&q=gbrandwine&timeMin%3D2022-01-23T00%3A00%3A00%2B02%3A00&fields=items
 */
@@ -12,93 +12,128 @@ https://www.googleapis.com/calendar/v3/calendars/gbrandwine@augury.com/events/?t
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
 // Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
+// unsigned long timerDelay = 600000;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
 
-/*
-Un authentication error:
-Reasons for using the refresh-token
+char *access_token = "ya29.A0ARrdaM9GuL-ryFtNmFE5LeSnmaoF-EjtC_WCloNLYBOMz1S-hIOqcT9LYvU3-9d_KZfED-J0xfb7A1yLkHGp8iz51E8gaeOz50ZDlbiem04QoRxZp-aAT81qE-pcy6hw7Zxe5R2Lxso2d9sBBQtSc5p6E6JZHA";
 
-"HTTP Response code: 401
+bool need_to_refresh_token = false;
+const char *ssid = "gozal_2.4";
+const char *password = "asdffdsa";
+#define LED_BUILTIN 4
+
+void refresh_token(char *token_to_update)
 {
-"error": {
-"code": 401,
-"message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
-"errors": [
-{
-"message": "Invalid Credentials",
-"domain": "global",
-"reason": "authError",
-"location": "Authorization",
-"locationType": "header"
+    if (!token_to_update)
+    {
+        Serial.println("Can't refresh token. Given input is Null");
+        return;
+    }
+    // Check WiFi connection status
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        HTTPClient http;
+
+        /*
+        POST /token HTTP/1.1
+        Host: oauth2.googleapis.com
+        Host: oauth2.googleapis.com
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 279
+
+        client_id=878532041560-9ja27q8s2sbej92fm1e5k0k9ekenna3p.apps.googleusercontent.com&client_secret=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&refresh_token=1%2F%2F09FGDh7P0XsC7CgYIARAAGAkSNwF-L9Irp5l5BNGBf9ZjfZ_eUdP13aMALPKWmH71tSiBx7wVzyU3C_rEr6MabhoM-xJ787av5TU&grant_type=refresh_token
+
+        */
+        http.begin(refreshToken);
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        // http.addHeader("Content-Length", "279");
+
+        auto httpCode = http.POST("client_id=878532041560-9ja27q8s2sbej92fm1e5k0k9ekenna3p.apps.googleusercontent.com&client_secret=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&refresh_token=1%2F%2F09FGDh7P0XsC7CgYIARAAGAkSNwF-L9Irp5l5BNGBf9ZjfZ_eUdP13aMALPKWmH71tSiBx7wVzyU3C_rEr6MabhoM-xJ787av5TU&grant_type=refresh_token");
+        if (httpCode > 0)
+        {
+            // file found at server
+            if (httpCode == HTTP_CODE_OK)
+            {
+
+                // get length of document (is -1 when Server sends no Content-Length header)
+                int len = http.getSize();
+                Serial.print("Got response HTTP_CODE_OK");
+
+                // create buffer for read
+                uint8_t buff[250] = {0}; // access_token is 166 bytes
+
+                // get tcp stream
+                WiFiClient *stream = http.getStreamPtr();
+
+                // read all data from server
+                while (http.connected() && (len > 0 || len == -1))
+                {
+                    // get available data size
+                    size_t size = stream->available();
+
+                    if (size)
+                    {
+                        // read up to 128 byte
+                        int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+
+                        auto responseChunk = String((char *)buff);
+                        if (responseChunk.indexOf("access_token") > -1)
+                        {
+                            Serial.println("\n*******************************************\n");
+                            Serial.println("Found Access token!");
+                            // Serial.println(responseChunk);
+
+                            // Take access_token out of buffer
+                            auto start = responseChunk.indexOf("access_token");
+                            auto end = responseChunk.indexOf(",", start); // First comma is end of access_token
+                            auto access_token_buf = responseChunk.substring(start, end);
+                            Serial.println(access_token_buf);
+                            // Take expires_in out of buffer
+                            start = responseChunk.indexOf("expires_in");
+                            end = responseChunk.indexOf(",", start); // First comma is end of access_token
+                            auto expired_in_buf = responseChunk.substring(start, end);
+                            Serial.println(expired_in_buf);
+                            auto expired_in = expired_in_buf.toInt();
+                            Serial.println(expired_in);
+
+                            Serial.write(buff, c);
+                            digitalWrite(LED_BUILTIN, HIGH);
+                            Serial.println("\n*******************************************\n");
+                            return;
+                        }
+                        // Serial.println(responseChunk);
+                        // write it to Serial
+                        Serial.write(buff, c);
+
+                        if (len > 0)
+                        {
+                            len -= c;
+                        }
+                    }
+                    delay(1);
+                }
+
+                Serial.println();
+                Serial.print("[HTTP] connection closed or file end.\n");
+            }
+            // else if (httpCode == HTTP_CODE_UNAUTHORIZED)
+            // {
+            //     Serial.print("[HTTP] returned with HTTP_CODE_UNAUTHORIZED.\n");
+            //     Serial.print("Try to refresh tooken...\n");
+            //     // need_to_refresh_token = true;
+            //     char *temp{"gal"};
+            //     refresh_token(temp);
+            // }
+        }
+        else
+        {
+            Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+
+        http.end();
+    }
 }
-],
-"status": "UNAUTHENTICATED"
-}
-}
-*/
-
-// const char *root_ca_cert = \ 
-// "-----BEGIN CERTIFICATE-----\n"
-//                            "MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ\n"
-//                            "RTESMBAGA1UEChMJQmFsdGltb3JlMRMwEQYDVQQLEwpDeWJlclRydXN0MSIwIAYD\n"
-//                            "VQQDExlCYWx0aW1vcmUgQ3liZXJUcnVzdCBSb290MB4XDTAwMDUxMjE4NDYwMFoX\n"
-//                            "DTI1MDUxMjIzNTkwMFowWjELMAkGA1UEBhMCSUUxEjAQBgNVBAoTCUJhbHRpbW9y\n"
-//                            "ZTETMBEGA1UECxMKQ3liZXJUcnVzdDEiMCAGA1UEAxMZQmFsdGltb3JlIEN5YmVy\n"
-//                            "VHJ1c3QgUm9vdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKMEuyKr\n"
-//                            "mD1X6CZymrV51Cni4eiVgLGw41uOKymaZN+hXe2wCQVt2yguzmKiYv60iNoS6zjr\n"
-//                            "IZ3AQSsBUnuId9Mcj8e6uYi1agnnc+gRQKfRzMpijS3ljwumUNKoUMMo6vWrJYeK\n"
-//                            "mpYcqWe4PwzV9/lSEy/CG9VwcPCPwBLKBsua4dnKM3p31vjsufFoREJIE9LAwqSu\n"
-//                            "XmD+tqYF/LTdB1kC1FkYmGP1pWPgkAx9XbIGevOF6uvUA65ehD5f/xXtabz5OTZy\n"
-//                            "dc93Uk3zyZAsuT3lySNTPx8kmCFcB5kpvcY67Oduhjprl3RjM71oGDHweI12v/ye\n"
-//                            "jl0qhqdNkNwnGjkCAwEAAaNFMEMwHQYDVR0OBBYEFOWdWTCCR1jMrPoIVDaGezq1\n"
-//                            "BE3wMBIGA1UdEwEB/wQIMAYBAf8CAQMwDgYDVR0PAQH/BAQDAgEGMA0GCSqGSIb3\n"
-//                            "DQEBBQUAA4IBAQCFDF2O5G9RaEIFoN27TyclhAO992T9Ldcw46QQF+vaKSm2eT92\n"
-//                            "9hkTI7gQCvlYpNRhcL0EYWoSihfVCr3FvDB81ukMJY2GQE/szKN+OMY3EU/t3Wgx\n"
-//                            "jkzSswF07r51XgdIGn9w/xZchMB5hbgF/X++ZRGjD8ACtPhSNzkE1akxehi/oCr0\n"
-//                            "Epn3o0WC4zxe9Z2etciefC7IpJ5OCBRLbf1wbWsaY71k5h+3zvDyny67G7fyUIhz\n"
-//                            "ksLi4xaNmjICq44Y3ekQEe5+NauQrz4wlHrQMz2nZQ/1/I6eYs9HRCwBXbsdtTLS\n"
-//                            "R9I4LtD+gdwyah617jzV/OeBHRnDJELqYzmp\n"
-//                            "-----END CERTIFICATE-----\n";
-
-// const char *root_calendar_cert = \ 
-// "-----BEGIN CERTIFICATE-----\n"
-//                                  "MIIFWjCCA0KgAwIBAgIQbkepxUtHDA3sM9CJuRz04TANBgkqhkiG9w0BAQwFADBH\n"
-//                                  "MQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExM\n"
-//                                  "QzEUMBIGA1UEAxMLR1RTIFJvb3QgUjEwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIy\n"
-//                                  "MDAwMDAwWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNl\n"
-//                                  "cnZpY2VzIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjEwggIiMA0GCSqGSIb3DQEB\n"
-//                                  "AQUAA4ICDwAwggIKAoICAQC2EQKLHuOhd5s73L+UPreVp0A8of2C+X0yBoJx9vaM\n"
-//                                  "f/vo27xqLpeXo4xL+Sv2sfnOhB2x+cWX3u+58qPpvBKJXqeqUqv4IyfLpLGcY9vX\n"
-//                                  "mX7wCl7raKb0xlpHDU0QM+NOsROjyBhsS+z8CZDfnWQpJSMHobTSPS5g4M/SCYe7\n"
-//                                  "zUjwTcLCeoiKu7rPWRnWr4+wB7CeMfGCwcDfLqZtbBkOtdh+JhpFAz2weaSUKK0P\n"
-//                                  "fyblqAj+lug8aJRT7oM6iCsVlgmy4HqMLnXWnOunVmSPlk9orj2XwoSPwLxAwAtc\n"
-//                                  "vfaHszVsrBhQf4TgTM2S0yDpM7xSma8ytSmzJSq0SPly4cpk9+aCEI3oncKKiPo4\n"
-//                                  "Zor8Y/kB+Xj9e1x3+naH+uzfsQ55lVe0vSbv1gHR6xYKu44LtcXFilWr06zqkUsp\n"
-//                                  "zBmkMiVOKvFlRNACzqrOSbTqn3yDsEB750Orp2yjj32JgfpMpf/VjsPOS+C12LOO\n"
-//                                  "Rc92wO1AK/1TD7Cn1TsNsYqiA94xrcx36m97PtbfkSIS5r762DL8EGMUUXLeXdYW\n"
-//                                  "k70paDPvOmbsB4om3xPXV2V4J95eSRQAogB/mqghtqmxlbCluQ0WEdrHbEg8QOB+\n"
-//                                  "DVrNVjzRlwW5y0vtOUucxD/SVRNuJLDWcfr0wbrM7Rv1/oFB2ACYPTrIrnqYNxgF\n"
-//                                  "lQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNV\n"
-//                                  "HQ4EFgQU5K8rJnEaK0gnhS9SZizv8IkTcT4wDQYJKoZIhvcNAQEMBQADggIBADiW\n"
-//                                  "Cu49tJYeX++dnAsznyvgyv3SjgofQXSlfKqE1OXyHuY3UjKcC9FhHb8owbZEKTV1\n"
-//                                  "d5iyfNm9dKyKaOOpMQkpAWBz40d8U6iQSifvS9efk+eCNs6aaAyC58/UEBZvXw6Z\n"
-//                                  "XPYfcX3v73svfuo21pdwCxXu11xWajOl40k4DLh9+42FpLFZXvRq4d2h9mREruZR\n"
-//                                  "gyFmxhE+885H7pwoHyXa/6xmld01D1zvICxi/ZG6qcz8WpyTgYMpl0p8WnK0OdC3\n"
-//                                  "d8t5/Wk6kjftbjhlRn7pYL15iJdfOBL07q9bgsiG1eGZbYwE8na6SfZu6W0eX6Dv\n"
-//                                  "J4J2QPim01hcDyxC2kLGe4g0x8HYRZvBPsVhHdljUEn2NIVq4BjFbkerQUIpm/Zg\n"
-//                                  "DdIx02OYI5NaAIFItO/Nis3Jz5nu2Z6qNuFoS3FJFDYoOj0dzpqPJeaAcWErtXvM\n"
-//                                  "+SUWgeExX6GjfhaknBZqlxi9dnKlC54dNuYvoS++cJEPqOba+MSSQGwlfnuzCdyy\n"
-//                                  "F62ARPBopY+Udf90WuioAnwMCeKpSwughQtiue+hMZL77/ZRBIls6Kl0obsXs7X9\n"
-//                                  "SQ98POyDGCBDTtWTurQ0sR8WNh8M5mQ5Fkzc4P4dyKliPUDqysU0ArSuiYgzNdws\n"
-//                                  "E3PYJ/HQcu51OyLemGhmW/HGY0dVHLqlCFF1pkgl\n"
-//                                  "-----END CERTIFICATE-----\n";
-
-char *access_token = "ya29.A0ARrdaM_XVWDubMcWQ9G-CHO_l_xZT_ycXkobMH2kZqVJgwdGi1sfAlR_-0kMol1P0b5L_wQJRImjfu0kAJgMdunwczAJLVzbS8yoLh7fje1h2EhhPwfz797LSfQYnJMBoXxBmzpFmimN2Kgoq_1bVvhviGHUug";
-
-const char *ssid = "Augury_Cellular";
-const char *password = "augurysys1";
 
 void setup()
 {
@@ -122,10 +157,10 @@ void setup()
 void loop()
 {
 
-    //Send an HTTP POST request every 10 minutes
+    // Send an HTTP POST request every 10 minutes
     if ((millis() - lastTime) > timerDelay)
     {
-        //Check WiFi connection status
+        // Check WiFi connection status
         if (WiFi.status() == WL_CONNECTED)
         {
             HTTPClient http;
@@ -134,37 +169,78 @@ void loop()
 
             // Your Domain name with URL path or IP address with path
             http.begin(serverPath.c_str());
-            String header_param = "Bearer ";
-
-            if (access_token)
-            {
-                header_param += access_token;
-                Serial.println("Authentication header: " + header_param);
-            }
-
-            // header_param += access_token;
             http.setAuthorization(access_token);
-            // http.addHeader("Host", "oauth2.googleapis.com");
 
             // Send HTTP GET request
-            int httpResponseCode = http.GET();
-
-            if (httpResponseCode > 0)
+            // int httpResponseCode = http.GET();
+            // start connection and send HTTP header
+            int httpCode = http.GET();
+            if (httpCode > 0)
             {
-                Serial.print("HTTP Response code: ");
-                Serial.println(httpResponseCode);
-                Serial.print("HTTP Response size: ");
-                Serial.println(http.getSize());
-                // http.
-                String payload = http.getString();
-                Serial.println(payload);
+                // HTTP header has been send and Server response header has been handled
+                Serial.printf("\n\n\n\n[HTTP] GET... code: %d\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n", httpCode);
+
+                // file found at server
+                if (httpCode == HTTP_CODE_OK)
+                {
+
+                    // get length of document (is -1 when Server sends no Content-Length header)
+                    int len = http.getSize();
+
+                    // create buffer for read
+                    uint8_t buff[128] = {0};
+
+                    // get tcp stream
+                    WiFiClient *stream = http.getStreamPtr();
+
+                    // read all data from server
+                    while (http.connected() && (len > 0 || len == -1))
+                    {
+                        // get available data size
+                        size_t size = stream->available();
+
+                        if (size)
+                        {
+                            // read up to 128 byte
+                            int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+
+                            auto responseChunk = String((char *)buff);
+                            if (responseChunk.indexOf("2022-02-12") > -1)
+                            {
+                                Serial.println("\n*******************************************\n");
+                                Serial.println("Found todays event");
+                                digitalWrite(LED_BUILTIN, HIGH);
+                                Serial.println("\n*******************************************\n");
+                            }
+                            // Serial.println(responseChunk);
+                            // write it to Serial
+                            Serial.write(buff, c);
+
+                            if (len > 0)
+                            {
+                                len -= c;
+                            }
+                        }
+                        delay(1);
+                    }
+
+                    Serial.println();
+                    Serial.print("[HTTP] connection closed or file end.\n");
+                }
+                else if (httpCode == HTTP_CODE_UNAUTHORIZED)
+                {
+                    Serial.print("[HTTP] returned with HTTP_CODE_UNAUTHORIZED.\n");
+                    Serial.print("Try to refresh tooken...\n");
+                    // need_to_refresh_token = true;
+                    char *temp{"gal"};
+                    refresh_token(temp);
+                }
             }
             else
             {
-                Serial.print("Error code: ");
-                Serial.println(httpResponseCode);
+                Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
             }
-            // Free resources
+
             http.end();
         }
         else
