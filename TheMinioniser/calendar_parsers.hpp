@@ -5,13 +5,16 @@ namespace calendar
     struct Event
     {
         String name{};
+        String start_str{};
         time_t start{};
+        String end_str{};
         time_t end{};
+        // Minutes
         int duration{0};
         bool accepted{false};
         void Print()
         {
-            Serial.printf("Event name: %s\n", name.c_str());
+            Serial.printf("Event name: %s\n Start time: %s\n End time: %s\n", name.c_str(), start_str.c_str(), end_str.c_str());
         };
     };
 
@@ -21,7 +24,7 @@ namespace calendar
         int len = http.getSize();
 
         // create buffer for read
-        uint8_t buff[128] = {0};
+        uint8_t buff[256] = {0};
 
         // get tcp stream
         WiFiClient *stream = http.getStreamPtr();
@@ -40,8 +43,9 @@ namespace calendar
                 int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
 
                 auto responseChunk = String((char *)buff);
-                Serial.print("Printing responseChunk: ");
+                Serial.println("Printing responseChunk: ");
                 Serial.println(responseChunk);
+                Serial.println("");
                 // The begginning of an Event
                 if (responseChunk.indexOf("summary") > -1)
                 {
@@ -50,58 +54,67 @@ namespace calendar
                     auto summary_start = responseChunk.indexOf("summary");
                     auto summary_end = responseChunk.indexOf("\",", summary_start);
 
-                    newEvent.name = responseChunk.substring(summary_start + sizeof("summary\": "), summary_end); // summary": "IoT Sync @ Mon"
+                    newEvent.name = responseChunk.substring(summary_start + sizeof("summary\": "), summary_end);
 
-                    // Continue reading through all the event.
-                    // "eventType" is the last attribute of an event
-                    String eventChunk{"INIT"};
-                    // create buffer for read
-                    uint8_t eventBuff[128] = {0};
-                    while (eventChunk.indexOf("eventType") == -1)
+                    // auto eventDescidx = responseChunk.indexOf("description");
+                    // if (eventDescidx > -1) // Skip description
+                    // {
+                    //     c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                    // }
+
+                    auto eventStartidx = responseChunk.indexOf("start");
+                    Serial.printf("eventStartidx: %d\n", eventStartidx);
+                    while (eventStartidx == -1 && (len > 0)) // i.e. Not found, seek for it.
                     {
-                        c = stream->readBytes(eventBuff, ((size > sizeof(eventBuff)) ? sizeof(eventBuff) : size));
-                        eventChunk = String((char *)eventBuff);
-                        auto eventStartidx = eventChunk.indexOf("start");
-                        if (eventStartidx > -1)
-                        {
-                            // Serial.println(eventStartidx);
-                            // Serial.println(eventChunk);
-                            auto date_start = eventChunk.indexOf("dateTime", eventStartidx);
-                            // auto start_end = eventChunk.indexOf("\",", date_start);
-                            Serial.printf("Start idx: %d\n", date_start);
-                            // Serial.printf("End idx: %d\n", start_end);
-                            auto dateStr = eventChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
-                            Serial.print("Date start: ");
-                            Serial.println(dateStr);
-
-                            // Found what I'm looking for, now look at the next chunk
-                            // eventChunk = eventChunk.substring(eventChunk.indexOf("start") + sizeof("start"));
-                        }
-                        auto eventEndidx = eventChunk.indexOf("end");
-                        if (eventEndidx > -1)
-                        {
-                            auto date_start = eventChunk.indexOf("dateTime", eventEndidx);
-                            // auto start_end = eventChunk.indexOf("\",", date_start);
-                            auto dateStr = eventChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
-                            Serial.print("Date end: ");
-                            Serial.println(dateStr);
-                            // Found what I'm looking for, now look at the next chunk
-                            // eventChunk = eventChunk.substring(eventChunk.indexOf("end") + sizeof("end"));
-                            break;
-                        }
-
+                        buff[256] = {0};
+                        c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                        // Serial.write(buff, c);
                         if (len > 0)
                         {
                             len -= c;
                         }
+                        responseChunk = String((char *)buff);
+                        eventStartidx = responseChunk.indexOf("start");
                     }
+                    Serial.printf("After eventStartidx: %d\n", eventStartidx);
+                    if (eventStartidx > -1)
+                    {
+                        auto date_start = responseChunk.indexOf("dateTime", eventStartidx);
+                        newEvent.start_str = responseChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
+                    }
+
+                    auto eventEndidx = responseChunk.indexOf("end");
+                    while (eventEndidx == -1 && (len > 0)) // i.e. Not found, seek for it.
+                    {
+                        buff[256] = {0};
+                        c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                        // Serial.write(buff, c);
+                        if (len > 0)
+                        {
+                            len -= c;
+                        }
+                        responseChunk = String((char *)buff);
+                        eventEndidx = responseChunk.indexOf("end");
+                    }
+                    Serial.printf("After eventEndidx: %d\n", eventStartidx);
+                    if (eventEndidx > -1)
+                    {
+                        auto date_start = responseChunk.indexOf("dateTime", eventEndidx);
+                        newEvent.end_str = responseChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
+                    }
+
+                    //     if (len > 0)
+                    //     {
+                    //         len -= c;
+                    //     }
+                    // }
                     newEvent.Print();
                     Serial.println("\n*******************************************\n");
                 }
 
                 // Serial.println(responseChunk);
                 // write it to Serial
-                Serial.write(buff, c);
+                // Serial.write(buff, c);
 
                 if (len > 0)
                 {

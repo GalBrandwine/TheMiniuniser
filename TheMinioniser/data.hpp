@@ -9,8 +9,8 @@ namespace token_data
     // Using this token we can refresh the original token expiration time
     String refresh_token = "1%2F%2F09FGDh7P0XsC7CgYIARAAGAkSNwF-L9Irp5l5BNGBf9ZjfZ_eUdP13aMALPKWmH71tSiBx7wVzyU3C_rEr6MabhoM-xJ787av5TU";
     // This is constant with the google API
-    String client_secret = "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";
-    String client_id = "878532041560-9ja27q8s2sbej92fm1e5k0k9ekenna3p.apps.googleusercontent.com";
+    const String client_secret = "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";
+    const String client_id = "878532041560-9ja27q8s2sbej92fm1e5k0k9ekenna3p.apps.googleusercontent.com";
     String refreshTokenUtl = "https://oauth2.googleapis.com/token";
     const String USER_NAME = "gbrandwine";
     const String USER_DOMAIN = "@augury.com";

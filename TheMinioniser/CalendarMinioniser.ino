@@ -6,15 +6,14 @@
 
 String dayEndTime = "18";
 String dayStartTime = "09";
-String dateDay = "21";
+String dateDay = "23";
 String dateMonth = "02";
 String dateYear = "2022";
 String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
 String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
+
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
-
-//https://www.googleapis.com/calendar/v3/calendars/gbrandwine@augury.com/events?q=gbrandwine&orderBy=updated&fields=items&timeMax=2022-21-21T18%3A00%3A00.000%2B02%3A00&timeMin=2022-21-21T09%3A00%3A00.000%2B02%3A00
 
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
@@ -74,7 +73,9 @@ void loop()
                 // file found at server
                 if (httpCode == HTTP_CODE_OK)
                 {
+                    Serial.printf("\n**************************************** STARTING PARSING ****************************************\n");
                     calendar::parse_calendar(http);
+                    Serial.printf("\n**************************************** DONE PARSING ****************************************\n");
                 }
                 else if (httpCode == HTTP_CODE_UNAUTHORIZED)
                 {
