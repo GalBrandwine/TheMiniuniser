@@ -1,5 +1,8 @@
 #pragma once
 #include <HTTPClient.h>
+
+#define MAX_EVENTS 15
+
 namespace calendar
 {
     struct Event
@@ -14,21 +17,79 @@ namespace calendar
         bool accepted{false};
         void Print()
         {
-            Serial.printf("Event name: %s\n Start time: %s\n End time: %s\n", name.c_str(), start_str.c_str(), end_str.c_str());
+            Serial.printf("Event name: %s\n Start time: %s\n End time: %s\naccepted: %d\n", name.c_str(), start_str.c_str(), end_str.c_str(), accepted);
         };
     };
 
-    void parse_calendar(HTTPClient &http)
+    void get_event_summary_str(WiFiClient *stream, String &str_out)
+    {
+        // Serial.println(__PRETTY_FUNCTION__);
+
+        if (stream->find("summary\": "))
+        {
+            Serial.printf("Found 'summary'\n");
+            str_out = stream->readStringUntil(',');
+        }
+    }
+    /*
+    return number of bytes readden from stream
+    */
+    void get_event_start_str(WiFiClient *stream, String &str_out)
+    {
+        // Serial.println(__PRETTY_FUNCTION__);
+        if (stream->find("start\": "))
+        {
+            Serial.printf("Found 'start'\n");
+            stream->find("dateTime\": ");
+            str_out = stream->readStringUntil(',');
+        }
+    }
+
+    /*
+    return number of bytes readden from stream
+    */
+    void get_event_end_str(WiFiClient *stream, String &str_out)
+    {
+        // Serial.println(__PRETTY_FUNCTION__);
+        if (stream->find("end\": "))
+        {
+            Serial.printf("Found 'end'\n");
+            stream->find("dateTime\": ");
+            str_out = stream->readStringUntil(',');
+        }
+    }
+
+    void get_event_acceptance_status(WiFiClient *stream, bool &is_accepted_out)
+    {
+        // Serial.println(__PRETTY_FUNCTION__);
+        if (stream->find("attendees"))
+        {
+            if (stream->find("gbrandwine@augury.com")) // TODO change to variable
+            {
+                Serial.printf("Found 'attendee'\n");
+                stream->find("responseStatus\": \"");
+                auto response_status = stream->readStringUntil('"');
+                Serial.println(response_status);
+                if (response_status.compareTo("accepted") == 0)
+                    is_accepted_out = true;
+                else
+                    is_accepted_out = false;
+            }
+        }
+    }
+
+    Event parse_calendar(HTTPClient &http)
     {
         // get length of document (is -1 when Server sends no Content-Length header)
         int len = http.getSize();
 
         // create buffer for read
-        uint8_t buff[256] = {0};
+        // uint8_t buff[256] = {0};
 
         // get tcp stream
         WiFiClient *stream = http.getStreamPtr();
 
+        Event events[MAX_EVENTS] = {};
         // read all data from server
         while (http.connected() && (len > 0 || len == -1))
         {
@@ -39,92 +100,27 @@ namespace calendar
             {
                 Event newEvent;
 
-                // read up to 128 byte
-                int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                get_event_summary_str(stream, newEvent.name);
+                get_event_start_str(stream, newEvent.start_str);
+                get_event_end_str(stream, newEvent.end_str);
+                get_event_acceptance_status(stream, newEvent.accepted);
 
-                auto responseChunk = String((char *)buff);
-                Serial.println("Printing responseChunk: ");
-                Serial.println(responseChunk);
-                Serial.println("");
-                // The begginning of an Event
-                if (responseChunk.indexOf("summary") > -1)
-                {
-                    Serial.println("\n*******************************************\n");
-                    Serial.println("Found todays event: ");
-                    auto summary_start = responseChunk.indexOf("summary");
-                    auto summary_end = responseChunk.indexOf("\",", summary_start);
-
-                    newEvent.name = responseChunk.substring(summary_start + sizeof("summary\": "), summary_end);
-
-                    // auto eventDescidx = responseChunk.indexOf("description");
-                    // if (eventDescidx > -1) // Skip description
-                    // {
-                    //     c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-                    // }
-
-                    auto eventStartidx = responseChunk.indexOf("start");
-                    Serial.printf("eventStartidx: %d\n", eventStartidx);
-                    while (eventStartidx == -1 && (len > 0)) // i.e. Not found, seek for it.
-                    {
-                        buff[256] = {0};
-                        c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-                        // Serial.write(buff, c);
-                        if (len > 0)
-                        {
-                            len -= c;
-                        }
-                        responseChunk = String((char *)buff);
-                        eventStartidx = responseChunk.indexOf("start");
-                    }
-                    Serial.printf("After eventStartidx: %d\n", eventStartidx);
-                    if (eventStartidx > -1)
-                    {
-                        auto date_start = responseChunk.indexOf("dateTime", eventStartidx);
-                        newEvent.start_str = responseChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
-                    }
-
-                    auto eventEndidx = responseChunk.indexOf("end");
-                    while (eventEndidx == -1 && (len > 0)) // i.e. Not found, seek for it.
-                    {
-                        buff[256] = {0};
-                        c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-                        // Serial.write(buff, c);
-                        if (len > 0)
-                        {
-                            len -= c;
-                        }
-                        responseChunk = String((char *)buff);
-                        eventEndidx = responseChunk.indexOf("end");
-                    }
-                    Serial.printf("After eventEndidx: %d\n", eventStartidx);
-                    if (eventEndidx > -1)
-                    {
-                        auto date_start = responseChunk.indexOf("dateTime", eventEndidx);
-                        newEvent.end_str = responseChunk.substring(date_start + sizeof("dateTime: "), date_start + sizeof("dateTime: ") + 27);
-                    }
-
-                    //     if (len > 0)
-                    //     {
-                    //         len -= c;
-                    //     }
-                    // }
-                    newEvent.Print();
-                    Serial.println("\n*******************************************\n");
-                }
-
-                // Serial.println(responseChunk);
-                // write it to Serial
-                // Serial.write(buff, c);
-
-                if (len > 0)
-                {
-                    len -= c;
-                }
+                Serial.println("\n*******************************************\n");
+                Serial.println("Found todays event: ");
+                newEvent.Print();
+                Serial.println("\n*******************************************\n");
             }
+            else
+            {
+                Serial.println("Done reading todays event.");
+                return;
+            }
+
             delay(1);
         }
 
         Serial.println();
         Serial.print("[HTTP] connection closed or file end.\n");
+        return events;
     }
 } // namespace calendar
