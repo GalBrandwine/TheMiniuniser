@@ -25,7 +25,8 @@ unsigned long timerDelay = 5000;
 
 const char *ssid = "gozal_2.4";
 const char *password = "asdffdsa";
-#define LED_BUILTIN 4
+
+calendar::Event events[MAX_EVENTS] = {};
 
 void setup()
 {
@@ -74,7 +75,7 @@ void loop()
                 if (httpCode == HTTP_CODE_OK)
                 {
                     Serial.printf("\n**************************************** STARTING PARSING ****************************************\n");
-                    calendar::parse_calendar(http);
+                    calendar::parse_calendar(http, events, MAX_EVENTS);
                     Serial.printf("\n**************************************** DONE PARSING ****************************************\n");
                 }
                 else if (httpCode == HTTP_CODE_UNAUTHORIZED)

@@ -1,6 +1,5 @@
 #pragma once
 #include <HTTPClient.h>
-
 #define MAX_EVENTS 15
 
 namespace calendar
@@ -78,18 +77,15 @@ namespace calendar
         }
     }
 
-    Event parse_calendar(HTTPClient &http)
+    void parse_calendar(HTTPClient &http, Event events[], int events_len)
     {
         // get length of document (is -1 when Server sends no Content-Length header)
         int len = http.getSize();
 
-        // create buffer for read
-        // uint8_t buff[256] = {0};
-
         // get tcp stream
         WiFiClient *stream = http.getStreamPtr();
 
-        Event events[MAX_EVENTS] = {};
+        int eventNum{0};
         // read all data from server
         while (http.connected() && (len > 0 || len == -1))
         {
@@ -98,29 +94,32 @@ namespace calendar
 
             if (size)
             {
-                Event newEvent;
 
-                get_event_summary_str(stream, newEvent.name);
-                get_event_start_str(stream, newEvent.start_str);
-                get_event_end_str(stream, newEvent.end_str);
-                get_event_acceptance_status(stream, newEvent.accepted);
+                get_event_summary_str(stream, events[eventNum].name);
+                get_event_start_str(stream, events[eventNum].start_str);
+                get_event_end_str(stream, events[eventNum].end_str);
+                get_event_acceptance_status(stream, events[eventNum].accepted);
 
                 Serial.println("\n*******************************************\n");
                 Serial.println("Found todays event: ");
-                newEvent.Print();
+                events[eventNum++].Print();
                 Serial.println("\n*******************************************\n");
             }
+            else if (eventNum > events_len)
+            {
+                Serial.println("Readden from stream maximum number of events.");
+                return;
+            }
+
             else
             {
-                Serial.println("Done reading todays event.");
+                Serial.println("No more events in stream.");
                 return;
             }
 
             delay(1);
         }
 
-        Serial.println();
-        Serial.print("[HTTP] connection closed or file end.\n");
-        return events;
+        Serial.printf("\n[HTTP] connection closed or file end.\n");
     }
 } // namespace calendar
