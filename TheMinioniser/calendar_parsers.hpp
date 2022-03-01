@@ -1,5 +1,6 @@
 #pragma once
 #include <HTTPClient.h>
+#include </home/gal/dev/TheMiniuniser/TheMinioniser/data.hpp>
 #define MAX_EVENTS 15
 
 namespace calendar
@@ -8,38 +9,34 @@ namespace calendar
     {
         String name{};
         String start_str{};
-        time_t start{};
+        struct tm start
+        {
+        };
         String end_str{};
-        time_t end{};
+        struct tm end
+        {
+        };
         // Minutes
         int duration{0};
         bool accepted{false};
         void Print()
         {
-            Serial.printf("Event name: %s\n Start time: %s\n End time: %s\naccepted: %d\n", name.c_str(), start_str.c_str(), end_str.c_str(), accepted);
+            char buffer[80];
+            Serial.printf("Event name: %s\naccepted: %d\n", name.c_str(), accepted);
+            strftime(buffer, 80, "%x - %I:%M%p", &start);
+            printf("start time : |%s|\n", buffer);
+            printf("start time_str: %s\n", start_str.c_str());
+            strftime(buffer, 80, "%x - %I:%M%p", &end);
+            printf("end time : |%s|\n", buffer);
+            printf("end time_str: %s\n", end_str.c_str());
         };
     };
 
     void get_event_summary_str(WiFiClient *stream, String &str_out)
     {
-        // Serial.println(__PRETTY_FUNCTION__);
 
         if (stream->find("summary\": "))
         {
-            Serial.printf("Found 'summary'\n");
-            str_out = stream->readStringUntil(',');
-        }
-    }
-    /*
-    return number of bytes readden from stream
-    */
-    void get_event_start_str(WiFiClient *stream, String &str_out)
-    {
-        // Serial.println(__PRETTY_FUNCTION__);
-        if (stream->find("start\": "))
-        {
-            Serial.printf("Found 'start'\n");
-            stream->find("dateTime\": ");
             str_out = stream->readStringUntil(',');
         }
     }
@@ -47,25 +44,77 @@ namespace calendar
     /*
     return number of bytes readden from stream
     */
-    void get_event_end_str(WiFiClient *stream, String &str_out)
+    void get_event_start_str(WiFiClient *stream, Event &event_out)
+    {
+        if (stream->find("start\": "))
+        {
+            stream->find("dateTime\": ");
+
+            event_out.start_str = stream->readStringUntil('+'); // Cut the +02:00 GMT offset
+
+            // I want to replace the "T" that is stuck between date and time, with a space
+            // the ASCII code for a blank space is the decimal number 32, or the binary number 0010 00002.
+            event_out.start_str.setCharAt(11, 32);
+
+            memset(&event_out.start, 0, sizeof(event_out.start)); // tm initialization
+
+            auto ret = strptime(event_out.start_str.c_str(), "\"%Y-%m-%d %H:%M:%S", &event_out.start);
+            if (ret == NULL)
+            {
+                printf("\nstrptime failed\n");
+            }
+            else
+            {
+                event_out.start.tm_year = 1900 + event_out.start.tm_year;
+                // event_out.start.tm_mon = 1 + event_out.start.tm_mon;
+                // printf("tm_hour:  %d\n", event_out.start.tm_hour);
+                // printf("tm_min:  %d\n", event_out.start.tm_min);
+                // printf("tm_sec:  %d\n", event_out.start.tm_sec);
+                // printf("tm_mon:  %d\n", event_out.start.tm_mon);
+                // printf("tm_mday:  %d\n", event_out.start.tm_mday);
+                // printf("tm_year:  %d\n", event_out.start.tm_year);
+                // printf("tm_yday:  %d\n", event_out.start.tm_yday);
+                // printf("tm_wday:  %d\n", event_out.start.tm_wday);
+            }
+        }
+    }
+
+    /*
+    return number of bytes readden from stream
+    */
+    void get_event_end_str(WiFiClient *stream, Event &event_out)
     {
         // Serial.println(__PRETTY_FUNCTION__);
         if (stream->find("end\": "))
         {
-            Serial.printf("Found 'end'\n");
             stream->find("dateTime\": ");
-            str_out = stream->readStringUntil(',');
+            event_out.end_str = stream->readStringUntil('+'); // Cut the +02:00 GMT offset
+
+            // I want to replace the "T" that is stuck between date and time, with a space
+            // the ASCII code for a blank space is the decimal number 32, or the binary number 0010 00002.
+            event_out.end_str.setCharAt(11, 32);
+
+            memset(&event_out.end, 0, sizeof(event_out.end)); // tm initialization
+
+            auto ret = strptime(event_out.end_str.c_str(), "\"%Y-%m-%d %H:%M:%S", &event_out.end);
+            if (ret == NULL)
+            {
+                printf("\nstrptime failed\n");
+            }
+            else
+            {
+                event_out.end.tm_year = 1900 + event_out.end.tm_year;
+                // event_out.end.tm_mon = 1 + event_out.end.tm_mon;
+            }
         }
     }
 
     void get_event_acceptance_status(WiFiClient *stream, bool &is_accepted_out)
     {
-        // Serial.println(__PRETTY_FUNCTION__);
         if (stream->find("attendees"))
         {
-            if (stream->find("gbrandwine@augury.com")) // TODO change to variable
+            if (stream->find((token_data::USER_NAME + token_data::USER_DOMAIN).c_str())) // TODO change to variable
             {
-                Serial.printf("Found 'attendee'\n");
                 stream->find("responseStatus\": \"");
                 auto response_status = stream->readStringUntil('"');
                 Serial.println(response_status);
@@ -96,8 +145,8 @@ namespace calendar
             {
 
                 get_event_summary_str(stream, events[eventNum].name);
-                get_event_start_str(stream, events[eventNum].start_str);
-                get_event_end_str(stream, events[eventNum].end_str);
+                get_event_start_str(stream, events[eventNum]);
+                get_event_end_str(stream, events[eventNum]);
                 get_event_acceptance_status(stream, events[eventNum].accepted);
 
                 Serial.println("\n*******************************************\n");

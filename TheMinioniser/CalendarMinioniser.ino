@@ -6,8 +6,8 @@
 
 String dayEndTime = "18";
 String dayStartTime = "09";
-String dateDay = "23";
-String dateMonth = "02";
+String dateDay = "2";
+String dateMonth = "03";
 String dateYear = "2022";
 String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
 String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
@@ -23,8 +23,47 @@ unsigned long lastTime = 0;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
 
-const char *ssid = "gozal_2.4";
-const char *password = "asdffdsa";
+const char *ssid = "Augury_Cellular";
+const char *password = "augurysys1";
+
+// Ntp information
+const char *ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 2 * 60 * 60;
+const int daylightOffset_sec = 3600;
+
+void printLocalTime()
+{
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo))
+    {
+        Serial.println("Failed to obtain time");
+        return;
+    }
+    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+bool should_get_calendar()
+{
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo))
+    {
+        Serial.println("Failed to obtain time");
+        return false;
+    }
+    switch (timeinfo.tm_hour)
+    {
+    case 0:
+    case 6:
+    case 9:
+    case 12:
+    case 16:
+    case 19:
+        printf("\nHo, its time for fetching the calendar\n");
+        return true;
+    default:
+        return false;
+    }
+}
 
 calendar::Event events[MAX_EVENTS] = {};
 
@@ -43,6 +82,9 @@ void setup()
     }
 
     Serial.println("Connected to the WiFi network");
+    // init and get the time
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    printLocalTime();
 }
 
 void loop()
