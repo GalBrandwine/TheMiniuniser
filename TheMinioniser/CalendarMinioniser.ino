@@ -4,13 +4,11 @@
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp>
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp>
 
-String dayEndTime = "18";
-String dayStartTime = "09";
+String dayEndTime = "20";
+String dayStartTime = "08";
 String dateDay = "2";
 String dateMonth = "03";
 String dateYear = "2022";
-String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
-String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
 
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
@@ -40,6 +38,10 @@ void printLocalTime()
         return;
     }
     Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+    dateDay = String(timeinfo.tm_mday);
+    dateMonth = String(1 + timeinfo.tm_mon); // 0-11
+    dateYear = String(1900 + timeinfo.tm_year);
+    printf("Updated query day\\month\\year: %s\\%s\\%s\n", dateDay.c_str(), dateMonth.c_str(), dateYear.c_str());
 }
 
 bool should_get_calendar()
@@ -98,6 +100,8 @@ void loop()
         {
             HTTPClient http;
 
+            String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
+            String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
             String serverPath = serverName + token_data::USER_NAME + token_data::USER_DOMAIN + "/events?q=" + token_data::USER_NAME + "&singleEvents=true&fields=items&timeMax=" + timeMax + "&timeMin=" + timeMin;
             Serial.print("serverPath: ");
             Serial.println(serverPath);
