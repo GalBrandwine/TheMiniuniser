@@ -46,54 +46,20 @@ namespace timetools
 
         for (size_t i = 0; i < today_num_of_events; i++)
         {
-            Serial.println(events[i].name);
-            printf("events[i] tm_hour:  %d\n", events[i].start.tm_hour);
-            printf("events[i] tm_min:  %d\n", events[i].start.tm_min);
-            printf("events[i] tm_sec:  %d\n", events[i].start.tm_sec);
-            printf("events[i] tm_mon:  %d\n", events[i].start.tm_mon);
-            printf("events[i] tm_mday:  %d\n", events[i].start.tm_mday);
-            printf("events[i] tm_year:  %d\n", events[i].start.tm_year);
-            printf("events[i] tm_yday:  %d\n", events[i].start.tm_yday);
-            printf("events[i] tm_wday:  %d\n", events[i].start.tm_wday);
-            printf("\n*\n");
-            printf("events[i] tm_hour:  %d\n", events[i].end.tm_hour);
-            printf("events[i] tm_min:  %d\n", events[i].end.tm_min);
-            printf("events[i] tm_sec:  %d\n", events[i].end.tm_sec);
-            printf("events[i] tm_mon:  %d\n", events[i].end.tm_mon);
-            printf("events[i] tm_mday:  %d\n", events[i].end.tm_mday);
-            printf("events[i] tm_year:  %d\n", events[i].end.tm_year);
-            printf("events[i] tm_yday:  %d\n", events[i].end.tm_yday);
-            printf("events[i] tm_wday:  %d\n", events[i].end.tm_wday);
-            printf("\n*\n");
-            printf("timeinfo.tm_hour:  %d\n", timeinfo.tm_hour);
-            printf("timeinfo.tm_min:  %d\n", timeinfo.tm_min);
-            printf("timeinfo.tm_sec:  %d\n", timeinfo.tm_sec);
-            printf("timeinfo.tm_mon:  %d\n", timeinfo.tm_mon);
-            printf("timeinfo.tm_mday:  %d\n", timeinfo.tm_mday);
-            printf("timeinfo.tm_year:  %d\n", timeinfo.tm_year);
-            printf("timeinfo.tm_yday:  %d\n", timeinfo.tm_yday);
-            printf("timeinfo.tm_wday:  %d\n", timeinfo.tm_wday);
-            // printf("Event duration in secs: %lf\n", difftime(mktime(&events[i].end), mktime(&events[i].start)));
 
-            if (events[i].start.tm_hour <= timeinfo.tm_hour)
-            { // Were in an event
-                printf("Now is bigger than some event start time\n");
-                bool in_event = false;
 
-                if (timeinfo.tm_hour < events[i].end.tm_hour)
-                {
-                    printf("Were in an event\n");
-                    in_event = true;
-                }
-                else if (timeinfo.tm_min < events[i].end.tm_min)
-                {
-                    printf("Were in an event\n");
-                    in_event = true;
-                }
+            auto secs_since_start_time = difftime(mktime(&timeinfo), mktime(&events[i].start));
+            auto secs_until_end_time = difftime(mktime(&timeinfo), mktime(&events[i].end)); // If end time is in the future this will result in negative number.
 
-                if (in_event && events[i].accepted)
+            if (secs_since_start_time >= 0 && secs_until_end_time < 0)
+            {
+
+                printf("Were in an event\n");
+                if (events[i].accepted)
                 {
                     printf("Were participating this event\n");
+                    events[i].time_left = fabs(secs_until_end_time);
+                    printf("Event time left %lf[secs]\n", events[i].time_left);
                     return i;
                 }
             }

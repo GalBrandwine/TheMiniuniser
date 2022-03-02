@@ -17,7 +17,7 @@ namespace calendar
         {
         };
         // Seconds
-        double duration{0};
+        double duration{0}, time_left{0};
         bool accepted{false};
         void Print() const
         {
@@ -30,6 +30,7 @@ namespace calendar
             printf("end time : |%s|\n", buffer);
             printf("end time_str: %s\n", end_str.c_str());
             printf("Duration %lf[secs]\n", duration);
+            printf("Time left %lf[secs]\n", time_left);
         };
     };
 
@@ -64,19 +65,6 @@ namespace calendar
             {
                 printf("\nstrptime failed\n");
             }
-            else
-            {
-                // event_out.start.tm_year = 1900 + event_out.start.tm_year;
-                // event_out.start.tm_mon = 1 + event_out.start.tm_mon;
-                // printf("tm_hour:  %d\n", event_out.start.tm_hour);
-                // printf("tm_min:  %d\n", event_out.start.tm_min);
-                // printf("tm_sec:  %d\n", event_out.start.tm_sec);
-                // printf("tm_mon:  %d\n", event_out.start.tm_mon);
-                // printf("tm_mday:  %d\n", event_out.start.tm_mday);
-                // printf("tm_year:  %d\n", event_out.start.tm_year);
-                // printf("tm_yday:  %d\n", event_out.start.tm_yday);
-                // printf("tm_wday:  %d\n", event_out.start.tm_wday);
-            }
         }
     }
 
@@ -85,7 +73,6 @@ namespace calendar
     */
     void get_event_end_str(WiFiClient *stream, Event &event_out)
     {
-        // Serial.println(__PRETTY_FUNCTION__);
         if (stream->find("end\": "))
         {
             stream->find("dateTime\": ");
@@ -105,8 +92,7 @@ namespace calendar
             else
             {
                 event_out.duration = difftime(mktime(&event_out.end), mktime(&event_out.start));
-                // event_out.end.tm_year = 1900 + event_out.end.tm_year;
-                // event_out.end.tm_mon = 1 + event_out.end.tm_mon;
+                event_out.time_left = event_out.duration;
             }
         }
     }
@@ -119,7 +105,6 @@ namespace calendar
             {
                 stream->find("responseStatus\": \"");
                 auto response_status = stream->readStringUntil('"');
-                Serial.println(response_status);
                 if (response_status.compareTo("accepted") == 0)
                     is_accepted_out = true;
                 else
@@ -193,6 +178,7 @@ namespace calendar
         case 19:
             if (timeinfo.tm_min < 1) // fetch for calendar only at the first minute of these hours
             {
+                Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
                 printf("\nHo, its time for fetching the calendar\n");
                 return true;
             }

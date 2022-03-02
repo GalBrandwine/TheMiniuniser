@@ -10,7 +10,7 @@ namespace ledstools
         event.Print();
 
         digitalWrite(4, HIGH);
-        delay(event.duration * 1000);
+        delay(event.time_left * 1000);
         digitalWrite(4, LOW);
     }
 } // ledstools

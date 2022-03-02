@@ -22,7 +22,7 @@ const char *password = "augurysys1";
 
 calendar::Event events[MAX_EVENTS] = {};
 int today_num_of_events = 0;
-
+bool should_fetch_calendar = true;
 void setup()
 {
 
@@ -48,13 +48,10 @@ void setup()
 void loop()
 {
 
-    if (calendar::should_fetch_calendar())
+    if (should_fetch_calendar || calendar::should_fetch_calendar())
     {
+        should_fetch_calendar = false;
 
-        // // Send an HTTP POST request every 10 minutes
-        // if ((millis() - lastTime) > timerDelay)
-        // {
-        // Check WiFi connection status
         if (WiFi.status() == WL_CONNECTED)
         {
             using namespace timetools;
@@ -94,6 +91,7 @@ void loop()
                     {
                         Serial.print("Got new token with expiration time: ");
                         Serial.println(token_data::token_expiration_time);
+                        should_fetch_calendar = true;
                     }
                 }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
@@ -112,8 +110,6 @@ void loop()
         {
             Serial.println("WiFi Disconnected");
         }
-        // lastTime = millis();
-        // }
     }
     else if (today_num_of_events > 0)
     {
@@ -124,6 +120,7 @@ void loop()
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
             ledstools::simple_handle_event(events[meeting_index]);
             printf("Meeting is over. Leds are turned off.\n");
+            should_fetch_calendar = true; // Meeting is blocking. So after a meeting, fetch new calendar
         }
     }
     else
