@@ -29,6 +29,7 @@ namespace calendar
             strftime(buffer, 80, "%x - %I:%M%p", &end);
             printf("end time : |%s|\n", buffer);
             printf("end time_str: %s\n", end_str.c_str());
+            printf("Duration %lf[secs]\n", duration);
         };
     };
 
@@ -185,7 +186,7 @@ namespace calendar
         switch (timeinfo.tm_hour)
         {
         case 0:
-        case 6:
+        case 8:
         case 9:
         case 12:
         case 16:

@@ -4,6 +4,7 @@
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp>
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp>
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp>
+#include </home/gal/dev/TheMiniuniser/TheMinioniser/leds_tools.hpp>
 
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
@@ -27,6 +28,8 @@ void setup()
 
     Serial.begin(115200);
     delay(1000);
+
+    pinMode(4, OUTPUT); // Flash setup
 
     WiFi.begin(ssid, password);
 
@@ -119,9 +122,11 @@ void loop()
         if (meeting_index > -1)
         {
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
+            ledstools::simple_handle_event(events[meeting_index]);
+            printf("Meeting is over. Leds are turned off.\n");
         }
     }
     else
-        printf("Its not time to fetch calendar, event havn't fetched yet\n");
+        printf("Its not time to fetch calendar, event haven't fetched yet\n");
     delay(1000 * 30);
 }
