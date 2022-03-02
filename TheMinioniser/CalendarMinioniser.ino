@@ -118,7 +118,6 @@ void loop()
         auto meeting_index = timetools::get_currently_ocuring_accepted_meeting(events, today_num_of_events);
         if (meeting_index > -1)
         {
-            
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
         }
     }

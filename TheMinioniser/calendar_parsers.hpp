@@ -16,8 +16,8 @@ namespace calendar
         struct tm end
         {
         };
-        // Minutes
-        int duration{0};
+        // Seconds
+        double duration{0};
         bool accepted{false};
         void Print() const
         {
@@ -65,7 +65,7 @@ namespace calendar
             }
             else
             {
-                event_out.start.tm_year = 1900 + event_out.start.tm_year;
+                // event_out.start.tm_year = 1900 + event_out.start.tm_year;
                 // event_out.start.tm_mon = 1 + event_out.start.tm_mon;
                 // printf("tm_hour:  %d\n", event_out.start.tm_hour);
                 // printf("tm_min:  %d\n", event_out.start.tm_min);
@@ -103,7 +103,8 @@ namespace calendar
             }
             else
             {
-                event_out.end.tm_year = 1900 + event_out.end.tm_year;
+                event_out.duration = difftime(mktime(&event_out.end), mktime(&event_out.start));
+                // event_out.end.tm_year = 1900 + event_out.end.tm_year;
                 // event_out.end.tm_mon = 1 + event_out.end.tm_mon;
             }
         }
@@ -184,13 +185,12 @@ namespace calendar
         switch (timeinfo.tm_hour)
         {
         case 0:
-        case 2:
         case 6:
         case 9:
         case 12:
         case 16:
         case 19:
-            if (timeinfo.tm_min <= 19) // fetch for calendar only at the first minute of these hours
+            if (timeinfo.tm_min < 1) // fetch for calendar only at the first minute of these hours
             {
                 printf("\nHo, its time for fetching the calendar\n");
                 return true;
