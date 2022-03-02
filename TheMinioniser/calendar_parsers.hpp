@@ -19,7 +19,7 @@ namespace calendar
         // Minutes
         int duration{0};
         bool accepted{false};
-        void Print()
+        void Print() const
         {
             char buffer[80];
             Serial.printf("Event name: %s\naccepted: %d\n", name.c_str(), accepted);
@@ -126,7 +126,7 @@ namespace calendar
         }
     }
 
-    void parse_calendar(HTTPClient &http, Event events[], int events_len)
+    int parse_calendar(HTTPClient &http, Event events[], int events_len)
     {
         // get length of document (is -1 when Server sends no Content-Length header)
         int len = http.getSize();
@@ -157,18 +157,48 @@ namespace calendar
             else if (eventNum > events_len)
             {
                 Serial.println("Readden from stream maximum number of events.");
-                return;
+                return eventNum;
             }
 
             else
             {
                 Serial.println("No more events in stream.");
-                return;
+                return eventNum;
             }
 
             delay(1);
         }
 
         Serial.printf("\n[HTTP] connection closed or file end.\n");
+        return 0;
     }
+
+    bool should_fetch_calendar()
+    {
+        struct tm timeinfo;
+        if (!getLocalTime(&timeinfo))
+        {
+            Serial.println("Failed to obtain time");
+            return false;
+        }
+        switch (timeinfo.tm_hour)
+        {
+        case 0:
+        case 2:
+        case 6:
+        case 9:
+        case 12:
+        case 16:
+        case 19:
+            if (timeinfo.tm_min <= 19) // fetch for calendar only at the first minute of these hours
+            {
+                printf("\nHo, its time for fetching the calendar\n");
+                return true;
+            }
+
+        default:
+            return false;
+        }
+    }
+
 } // namespace calendar

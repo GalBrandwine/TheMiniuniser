@@ -3,12 +3,7 @@
 #include <HTTPClient.h>
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp>
 #include </home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp>
-
-String dayEndTime = "20";
-String dayStartTime = "08";
-String dateDay = "2";
-String dateMonth = "03";
-String dateYear = "2022";
+#include </home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp>
 
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
@@ -24,50 +19,8 @@ unsigned long timerDelay = 5000;
 const char *ssid = "Augury_Cellular";
 const char *password = "augurysys1";
 
-// Ntp information
-const char *ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = 2 * 60 * 60;
-const int daylightOffset_sec = 3600;
-
-void printLocalTime()
-{
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo))
-    {
-        Serial.println("Failed to obtain time");
-        return;
-    }
-    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-    dateDay = String(timeinfo.tm_mday);
-    dateMonth = String(1 + timeinfo.tm_mon); // 0-11
-    dateYear = String(1900 + timeinfo.tm_year);
-    printf("Updated query day\\month\\year: %s\\%s\\%s\n", dateDay.c_str(), dateMonth.c_str(), dateYear.c_str());
-}
-
-bool should_get_calendar()
-{
-    struct tm timeinfo;
-    if (!getLocalTime(&timeinfo))
-    {
-        Serial.println("Failed to obtain time");
-        return false;
-    }
-    switch (timeinfo.tm_hour)
-    {
-    case 0:
-    case 6:
-    case 9:
-    case 12:
-    case 16:
-    case 19:
-        printf("\nHo, its time for fetching the calendar\n");
-        return true;
-    default:
-        return false;
-    }
-}
-
 calendar::Event events[MAX_EVENTS] = {};
+int today_num_of_events = 0;
 
 void setup()
 {
@@ -85,19 +38,23 @@ void setup()
 
     Serial.println("Connected to the WiFi network");
     // init and get the time
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    printLocalTime();
+    configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
+    timetools::printAndUpdateLocalTime();
 }
 
 void loop()
 {
 
-    // Send an HTTP POST request every 10 minutes
-    if ((millis() - lastTime) > timerDelay)
+    if (calendar::should_fetch_calendar())
     {
+
+        // // Send an HTTP POST request every 10 minutes
+        // if ((millis() - lastTime) > timerDelay)
+        // {
         // Check WiFi connection status
         if (WiFi.status() == WL_CONNECTED)
         {
+            using namespace timetools;
             HTTPClient http;
 
             String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
@@ -121,8 +78,9 @@ void loop()
                 if (httpCode == HTTP_CODE_OK)
                 {
                     Serial.printf("\n**************************************** STARTING PARSING ****************************************\n");
-                    calendar::parse_calendar(http, events, MAX_EVENTS);
-                    Serial.printf("\n**************************************** DONE PARSING ****************************************\n");
+                    today_num_of_events = 0;
+                    today_num_of_events = calendar::parse_calendar(http, events, MAX_EVENTS);
+                    Serial.printf("\n**************************************** DONE PARSING %d events****************************************\n", today_num_of_events);
                 }
                 else if (httpCode == HTTP_CODE_UNAUTHORIZED)
                 {
@@ -151,6 +109,20 @@ void loop()
         {
             Serial.println("WiFi Disconnected");
         }
-        lastTime = millis();
+        // lastTime = millis();
+        // }
     }
+    else if (today_num_of_events > 0)
+    {
+        printf("Its not time to fetch calendar, check if Im in a meeting right Now\n");
+        auto meeting_index = timetools::get_currently_ocuring_accepted_meeting(events, today_num_of_events);
+        if (meeting_index > -1)
+        {
+            
+            printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
+        }
+    }
+    else
+        printf("Its not time to fetch calendar, event havn't fetched yet\n");
+    delay(1000 * 30);
 }
