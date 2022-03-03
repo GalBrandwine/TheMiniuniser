@@ -32,6 +32,17 @@ namespace calendar
             printf("Duration %lf[secs]\n", duration);
             printf("Time left %lf[secs]\n", time_left);
         };
+        void UpdateTimeLeft()
+        {
+            struct tm timeinfo;
+            if (!getLocalTime(&timeinfo))
+            {
+                Serial.println("Failed to obtain time");
+                return;
+            }
+            time_left = fabs(difftime(mktime(&timeinfo), mktime(&end)));
+            printf("Time left %lf[secs]\n", time_left);
+        };
     };
 
     void get_event_summary_str(WiFiClient *stream, String &str_out)
@@ -101,7 +112,7 @@ namespace calendar
     {
         if (stream->find("attendees"))
         {
-            if (stream->find((token_data::USER_NAME + token_data::USER_DOMAIN).c_str())) // TODO change to variable
+            if (stream->find((token_data::USER_NAME + token_data::USER_DOMAIN).c_str()))
             {
                 stream->find("responseStatus\": \"");
                 auto response_status = stream->readStringUntil('"');

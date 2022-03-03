@@ -30,7 +30,8 @@ void setup()
     delay(1000);
 
     pinMode(4, OUTPUT); // Flash setup
-
+    ledstools::init_leds();
+    
     WiFi.begin(ssid, password);
 
     while (WiFi.status() != WL_CONNECTED)
@@ -118,7 +119,8 @@ void loop()
         if (meeting_index > -1)
         {
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
-            ledstools::simple_handle_event(events[meeting_index]);
+            // ledstools::simple_handle_event(events[meeting_index]);
+            ledstools::show_event_progress(events[meeting_index]);
             printf("Meeting is over. Leds are turned off.\n");
             should_fetch_calendar = true; // Meeting is blocking. So after a meeting, fetch new calendar
         }
