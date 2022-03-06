@@ -4,7 +4,7 @@
 namespace timetools
 {
     const String dayEndTime = "20";
-    const String dayStartTime = "01";
+    const String dayStartTime = "06";
     String dateDay = "2";
     String dateMonth = "03";
     String dateYear = "2022";

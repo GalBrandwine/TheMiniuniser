@@ -22,7 +22,7 @@ const char *password = "augurysys1";
 
 calendar::Event events[MAX_EVENTS] = {};
 int today_num_of_events = 0;
-bool should_fetch_calendar = true;
+bool manually_should_fetch_calendar = true;
 void setup()
 {
 
@@ -31,7 +31,7 @@ void setup()
 
     pinMode(4, OUTPUT); // Flash setup
     ledstools::init_leds();
-    
+
     WiFi.begin(ssid, password);
 
     while (WiFi.status() != WL_CONNECTED)
@@ -49,9 +49,9 @@ void setup()
 void loop()
 {
 
-    if (should_fetch_calendar || calendar::should_fetch_calendar())
+    if (manually_should_fetch_calendar || calendar::should_fetch_calendar())
     {
-        should_fetch_calendar = false;
+        manually_should_fetch_calendar = false;
 
         if (WiFi.status() == WL_CONNECTED)
         {
@@ -92,7 +92,7 @@ void loop()
                     {
                         Serial.print("Got new token with expiration time: ");
                         Serial.println(token_data::token_expiration_time);
-                        should_fetch_calendar = true;
+                        manually_should_fetch_calendar = true;
                     }
                 }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
@@ -121,8 +121,9 @@ void loop()
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
             // ledstools::simple_handle_event(events[meeting_index]);
             ledstools::show_event_progress(events[meeting_index]);
+            ledstools::turn_off_leds();
             printf("Meeting is over. Leds are turned off.\n");
-            should_fetch_calendar = true; // Meeting is blocking. So after a meeting, fetch new calendar
+            manually_should_fetch_calendar = true; // Meeting is blocking. So after a meeting, fetch new calendar
         }
     }
     else
