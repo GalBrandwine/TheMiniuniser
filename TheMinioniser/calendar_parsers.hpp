@@ -189,8 +189,6 @@ namespace calendar
         case 19:
             if (timeinfo.tm_min < 1) // fetch for calendar only at the first minute of these hours
             {
-                Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-                printf("\nHo, its time for fetching the calendar\n");
                 return true;
             }
 

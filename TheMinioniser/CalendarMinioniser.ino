@@ -33,26 +33,39 @@ void setup()
     ledstools::init_leds();
 
     WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED)
+    int num_of_connections = 10;
+    ledstools::show_color(ledstools::CONNECTING_TO_WIFI);
+    while (WiFi.status() != WL_CONNECTED and num_of_connections-- > 0)
     {
         delay(1000);
         Serial.println("Connecting to WiFi..");
+    }
+    if (num_of_connections < 0)
+    {
+        for (size_t i = 0; i < 3; i++)
+        {
+            Serial.println("Failed connecting to WiFi..");
+            ledstools::show_color(ledstools::CONNECTING_TO_WIFI_FAILED);
+            delay(1000);
+        }
+        exit(1);
     }
 
     Serial.println("Connected to the WiFi network");
     // init and get the time
     configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
     timetools::printAndUpdateLocalTime();
+    ledstools::turn_off_leds();
 }
 
 void loop()
 {
-
+    ledstools::turn_off_leds();
     if (manually_should_fetch_calendar || calendar::should_fetch_calendar())
     {
         manually_should_fetch_calendar = false;
-
+        timetools::printAndUpdateLocalTime();
+        
         if (WiFi.status() == WL_CONNECTED)
         {
             using namespace timetools;
@@ -79,6 +92,7 @@ void loop()
                 if (httpCode == HTTP_CODE_OK)
                 {
                     Serial.printf("\n**************************************** STARTING PARSING ****************************************\n");
+                    ledstools::show_color(ledstools::GETTING_CALENDAR);
                     today_num_of_events = 0;
                     today_num_of_events = calendar::parse_calendar(http, events, MAX_EVENTS);
                     Serial.printf("\n**************************************** DONE PARSING %d events****************************************\n", today_num_of_events);
@@ -87,6 +101,7 @@ void loop()
                 {
                     Serial.print("[HTTP] returned with HTTP_CODE_UNAUTHORIZED.\n");
                     Serial.print("Try to refresh tooken...\n");
+                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
                     token_data::token_expiration_time = access_token::token_freshener(token_data::token);
                     if (token_data::token_expiration_time > 0)
                     {
@@ -97,12 +112,14 @@ void loop()
                 }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
                 {
-                    Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOUND.\n");
+                    Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOvUND.\n");
+                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
                 }
             }
             else
             {
                 Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+                ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
             }
 
             http.end();
@@ -128,5 +145,5 @@ void loop()
     }
     else
         printf("Its not time to fetch calendar, event haven't fetched yet\n");
-    delay(1000 * 30);
+    delay(1000 * 10);
 }

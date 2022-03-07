@@ -9,18 +9,54 @@
 #define DATA_PIN 12
 // #define CLOCK_PIN 13
 
-#define NUM_LEDS 6
+#define NUM_LEDS 8
 // Define the array of leds
 CRGB leds[NUM_LEDS];
 
 namespace ledstools
 {
+    enum STATES_COLORS
+    {
+        CONNECTING_TO_WIFI,
+        CONNECTING_TO_WIFI_FAILED,
+        GETTING_CALENDAR,
+        GETTING_CALENDAR_FAILED
+    };
+
     void turn_off_leds()
     {
         FastLED.clear(true);
     }
 
     // Blocking, until meeting is over
+    void show_color(const STATES_COLORS color)
+    {
+        CRGB::HTMLColorCode html_color;
+        switch (color)
+        {
+        case STATES_COLORS::GETTING_CALENDAR:
+            html_color = CRGB::Navy;
+            break;
+        case STATES_COLORS::CONNECTING_TO_WIFI:
+            html_color = CRGB::Orange;
+            break;
+        case STATES_COLORS::CONNECTING_TO_WIFI_FAILED:
+        case STATES_COLORS::GETTING_CALENDAR_FAILED:
+            html_color = CRGB::Red;
+            break;
+
+        default:
+            break;
+        }
+
+        FastLED.clear(true);
+        for (size_t i = 0; i < NUM_LEDS / 2; i++)
+        {
+            leds[i] = html_color;
+            leds[NUM_LEDS - 1 - i] = html_color;
+        }
+        FastLED.show();
+    };
     void show_event_progress(calendar::Event &event)
     {
 
@@ -44,28 +80,30 @@ namespace ledstools
             {
                 leds[i] = CRGB::Red;
                 leds[NUM_LEDS - 1 - i] = CRGB::Red;
-                FastLED.show();
             }
+            FastLED.show();
             delay(1000 * 5);
             event.UpdateTimeLeft();
         }
 
         // Delay in ms
         int event_ending_blinking_delay = 1000;
-        while (event.time_left > 0)
+        while (event.time_left > 1)
         {
-            // Event is 30 seconds to tis end.
+            // Event is 30 seconds to its end.
             // Turn the LED on, then pause
-            leds[NUM_LEDS - 1] = CRGB::Red;
+            leds[(NUM_LEDS / 2) - 1] = CRGB::Red;
+            leds[(NUM_LEDS / 2)] = CRGB::Red;
             FastLED.show();
             delay(event_ending_blinking_delay);
             // Now turn the LED off, then pause
-            leds[NUM_LEDS - 1] = CRGB::Black;
+            leds[(NUM_LEDS / 2) - 1] = CRGB::Black;
+            leds[(NUM_LEDS / 2)] = CRGB::Black;
             FastLED.show();
 
             if (event_ending_blinking_delay > 10)
             {
-                event_ending_blinking_delay -= 15;
+                event_ending_blinking_delay -= event_ending_blinking_delay * 0.08;
             }
             delay(event_ending_blinking_delay);
             event.UpdateTimeLeft();
