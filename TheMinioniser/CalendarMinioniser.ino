@@ -1,11 +1,11 @@
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include </home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp>
-#include </home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp>
-#include </home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp>
-#include </home/gal/dev/TheMiniuniser/TheMinioniser/leds_tools.hpp>
-
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/leds_tools.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/sound_tools.hpp"
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
 
@@ -146,6 +146,7 @@ void loop()
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
             // ledstools::simple_handle_event(events[meeting_index]);
             ledstools::show_event_progress(events[meeting_index]);
+            soundtools::jingle_bells();
             ledstools::turn_off_leds();
             printf("Meeting is over. Leds are turned off.\n");
             manually_should_fetch_calendar = true; // Meeting is blocking. So after a meeting, fetch new calendar
