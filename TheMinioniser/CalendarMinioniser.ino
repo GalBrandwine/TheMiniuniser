@@ -23,6 +23,7 @@ const char *password = "augurysys1";
 calendar::Event events[MAX_EVENTS] = {};
 int today_num_of_events = 0;
 bool manually_should_fetch_calendar = true;
+const int DELAY_IN_SEC = 10;
 void setup()
 {
 
@@ -60,15 +61,16 @@ void setup()
 
 void loop()
 {
+    using namespace timetools;
     ledstools::turn_off_leds();
     if (manually_should_fetch_calendar || calendar::should_fetch_calendar())
     {
         manually_should_fetch_calendar = false;
-        timetools::printAndUpdateLocalTime();
-        
+        printAndUpdateLocalTime();
+
         if (WiFi.status() == WL_CONNECTED)
         {
-            using namespace timetools;
+
             HTTPClient http;
 
             String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
@@ -79,10 +81,22 @@ void loop()
 
             // Your Domain name with URL path or IP address with path
             http.begin(serverPath.c_str());
-            http.setAuthorization(token_data::token.c_str());
+
+            int httpCode{-1};
 
             // start connection and send HTTP header
-            int httpCode = http.GET();
+            if (token_data::token_expiration_time > 0)
+            {
+                httpCode = http.GET();
+                http.setAuthorization(token_data::token.c_str());
+            }
+            else
+            {
+                token_data::token_expiration_time = access_token::token_freshener(token_data::token);
+                http.setAuthorization(token_data::token.c_str());
+                httpCode = http.GET();
+            }
+
             if (httpCode > 0)
             {
                 // HTTP header has been send and Server response header has been handled
@@ -101,18 +115,12 @@ void loop()
                 {
                     Serial.print("[HTTP] returned with HTTP_CODE_UNAUTHORIZED.\n");
                     Serial.print("Try to refresh tooken...\n");
+                    token_data::token_expiration_time = -1;
                     ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
-                    token_data::token_expiration_time = access_token::token_freshener(token_data::token);
-                    if (token_data::token_expiration_time > 0)
-                    {
-                        Serial.print("Got new token with expiration time: ");
-                        Serial.println(token_data::token_expiration_time);
-                        manually_should_fetch_calendar = true;
-                    }
                 }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
                 {
-                    Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOvUND.\n");
+                    Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOUND.\n");
                     ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
                 }
             }
@@ -132,7 +140,7 @@ void loop()
     else if (today_num_of_events > 0)
     {
         printf("Its not time to fetch calendar, check if Im in a meeting right Now\n");
-        auto meeting_index = timetools::get_currently_ocuring_accepted_meeting(events, today_num_of_events);
+        auto meeting_index = get_currently_ocuring_accepted_meeting(events, today_num_of_events);
         if (meeting_index > -1)
         {
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
@@ -145,5 +153,6 @@ void loop()
     }
     else
         printf("Its not time to fetch calendar, event haven't fetched yet\n");
-    delay(1000 * 10);
+    delay(1000 * DELAY_IN_SEC);
+    token_data::token_expiration_time -= DELAY_IN_SEC;
 }
