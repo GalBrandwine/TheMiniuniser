@@ -32,7 +32,8 @@ void setup()
 
     pinMode(4, OUTPUT); // Flash setup
     ledstools::init_leds();
-
+    soundtools::init_sound();
+    
     WiFi.begin(ssid, password);
     int num_of_connections = 10;
     ledstools::show_color(ledstools::CONNECTING_TO_WIFI);
@@ -118,6 +119,12 @@ void loop()
                     token_data::token_expiration_time = -1;
                     ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
                 }
+
+                else if (httpCode == HTTP_CODE_FORBIDDEN)
+                {
+                    Serial.print("[HTTP] returned with HTTP_CODE_FORBIDDEN.\n");
+                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
+                }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
                 {
                     Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOUND.\n");
@@ -146,6 +153,7 @@ void loop()
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
             // ledstools::simple_handle_event(events[meeting_index]);
             ledstools::show_event_progress(events[meeting_index]);
+            token_data::token_expiration_time -= events[meeting_index].duration;
             soundtools::jingle_bells();
             ledstools::turn_off_leds();
             printf("Meeting is over. Leds are turned off.\n");

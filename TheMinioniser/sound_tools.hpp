@@ -121,14 +121,11 @@ namespace soundtools
 
     void jingle_bells()
     {
-        ledcSetup(0, 1E5, 12);
-        ledcAttachPin(BUZZZER_PIN, 0);
-        printf(__PRETTY_FUNCTION__);
+
         int size = sizeof(noteDurations) / sizeof(int);
 
         for (int thisNote = 0; thisNote < size; thisNote++)
         {
-            printf("Printing Note: %d", thisNote);
             // to calculate the note duration, take one second divided by the note type.
             // e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
             int noteDuration = 1000 / noteDurations[thisNote];
@@ -146,5 +143,10 @@ namespace soundtools
             // stop the tone playing:
             ledcWriteTone(0, 0);
         }
+    }
+    void init_sound()
+    {
+        ledcSetup(0, 1E5, 12);
+        ledcAttachPin(BUZZZER_PIN, 0);
     }
 }
