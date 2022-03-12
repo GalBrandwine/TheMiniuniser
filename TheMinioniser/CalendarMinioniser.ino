@@ -1,5 +1,6 @@
 
-#include <WiFi.h>
+// #include <WiFi.h>
+#include <WiFiManager.h>
 #include <HTTPClient.h>
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp"
@@ -17,47 +18,95 @@ unsigned long lastTime = 0;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
 
-const char *ssid = "Augury_Cellular";
-const char *password = "augurysys1";
+// const char *ssid = "Augury_Cellular";
+// const char *password = "augurysys1";
+String hostname = "Minioniser";
 
 calendar::Event events[MAX_EVENTS] = {};
 int today_num_of_events = 0;
 bool manually_should_fetch_calendar = true;
 const int DELAY_IN_SEC = 10;
+
+// wifimanager can run in a blocking mode or a non blocking mode
+// Be sure to know how to process loops with no delay() if using non blocking
+bool wm_nonblocking = false; // change to true to use non blocking
+
+WiFiManager wm;                    // global wm instance
+WiFiManagerParameter custom_field; // global param ( for non blocking w params )
+
 void setup()
 {
 
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    WiFi.setHostname(hostname.c_str()); // define hostname
     Serial.begin(115200);
     delay(1000);
 
-    pinMode(4, OUTPUT); // Flash setup
     ledstools::init_leds();
     soundtools::init_sound();
-    
-    WiFi.begin(ssid, password);
-    int num_of_connections = 10;
-    ledstools::show_color(ledstools::CONNECTING_TO_WIFI);
-    while (WiFi.status() != WL_CONNECTED and num_of_connections-- > 0)
+
+    if (wm_nonblocking)
+        wm.setConfigPortalBlocking(false);
+
+    const char *augury_user_str = "<br><label for='auguryuserid'>Enter Augury user (prefix only, no '@augury.com')</label><br><input type='text' name='auguryuserid' <br>";
+    new (&custom_field) WiFiManagerParameter(augury_user_str); // custom html input
+
+    wm.addParameter(&custom_field);
+    wm.setSaveParamsCallback(saveParamCallback);
+
+    // set dark theme
+    wm.setDarkMode(true);
+
+    ledstools::communicate_status(ledstools::CONNECTING_TO_WIFI_CONTINUES);
+    bool res;
+    res = wm.autoConnect((hostname + String("AP")).c_str()); // password protected ap
+    ledstools::turn_off_leds();
+    if (!res)
     {
-        delay(1000);
-        Serial.println("Connecting to WiFi..");
-    }
-    if (num_of_connections < 0)
-    {
+        Serial.println("Failed to connect or hit timeout");
         for (size_t i = 0; i < 3; i++)
         {
             Serial.println("Failed connecting to WiFi..");
-            ledstools::show_color(ledstools::CONNECTING_TO_WIFI_FAILED);
+            ledstools::communicate_status(ledstools::CONNECTING_TO_WIFI_FAILED);
             delay(1000);
         }
-        exit(1);
+        ESP.restart();
     }
+    else
+    {
+        // if you get here you have connected to the WiFi
+        ledstools::communicate_status(ledstools::CONNECTED_TO_WIFI);
+        Serial.println("connected...yeey :)");
+        configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
+        timetools::printAndUpdateLocalTime();
+        ledstools::turn_off_leds();
+    }
+}
 
-    Serial.println("Connected to the WiFi network");
-    // init and get the time
-    configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
-    timetools::printAndUpdateLocalTime();
-    ledstools::turn_off_leds();
+String getParam(String name)
+{
+    // read parameter from server, for customhmtl input
+    String value;
+    if (wm.server->hasArg(name))
+    {
+        value = wm.server->arg(name);
+    }
+    return value;
+}
+
+void saveParamCallback()
+{
+    Serial.println("[CALLBACK] saveParamCallback fired");
+    auto user = getParam("auguryuserid");
+    if (user.length() > 0)
+    {
+        token_data::USER_NAME = user;
+        Serial.println("PARAM augury_user = " + user);
+
+        if (user == "soundtest")
+            soundtools::jingle_bells();
+    }
 }
 
 void loop()
@@ -107,7 +156,7 @@ void loop()
                 if (httpCode == HTTP_CODE_OK)
                 {
                     Serial.printf("\n**************************************** STARTING PARSING ****************************************\n");
-                    ledstools::show_color(ledstools::GETTING_CALENDAR);
+                    ledstools::communicate_status(ledstools::GETTING_CALENDAR);
                     today_num_of_events = 0;
                     today_num_of_events = calendar::parse_calendar(http, events, MAX_EVENTS);
                     Serial.printf("\n**************************************** DONE PARSING %d events****************************************\n", today_num_of_events);
@@ -117,24 +166,24 @@ void loop()
                     Serial.print("[HTTP] returned with HTTP_CODE_UNAUTHORIZED.\n");
                     Serial.print("Try to refresh tooken...\n");
                     token_data::token_expiration_time = -1;
-                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
+                    ledstools::communicate_status(ledstools::GETTING_CALENDAR_FAILED);
                 }
 
                 else if (httpCode == HTTP_CODE_FORBIDDEN)
                 {
                     Serial.print("[HTTP] returned with HTTP_CODE_FORBIDDEN.\n");
-                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
+                    ledstools::communicate_status(ledstools::GETTING_CALENDAR_FAILED);
                 }
                 else if (httpCode == HTTP_CODE_NOT_FOUND)
                 {
                     Serial.print("[HTTP] returned with HTTP_CODE_NOT_FOUND.\n");
-                    ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
+                    ledstools::communicate_status(ledstools::GETTING_CALENDAR_FAILED);
                 }
             }
             else
             {
                 Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-                ledstools::show_color(ledstools::GETTING_CALENDAR_FAILED);
+                ledstools::communicate_status(ledstools::GETTING_CALENDAR_FAILED);
             }
 
             http.end();

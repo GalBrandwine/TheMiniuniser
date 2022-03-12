@@ -15,10 +15,14 @@ CRGB leds[NUM_LEDS];
 
 namespace ledstools
 {
-    enum STATES_COLORS
+    bool continues_effect_connecting_to_wifi_flag = false;
+    BaseType_t continues_effect_connecting_to_wifiReturned;
+    TaskHandle_t continues_effect_connecting_to_wifiHandle = NULL;
+    enum STATES
     {
-        CONNECTING_TO_WIFI,
+        CONNECTED_TO_WIFI,
         CONNECTING_TO_WIFI_FAILED,
+        CONNECTING_TO_WIFI_CONTINUES,
         GETTING_CALENDAR,
         GETTING_CALENDAR_FAILED
     };
@@ -26,22 +30,76 @@ namespace ledstools
     void turn_off_leds()
     {
         FastLED.clear(true);
+        if (continues_effect_connecting_to_wifi_flag && continues_effect_connecting_to_wifiReturned == pdPASS)
+        {
+            /* The task was created.  Use the task's handle to delete the task. */
+            vTaskDelete(continues_effect_connecting_to_wifiHandle);
+            continues_effect_connecting_to_wifi_flag = false;
+        }
     }
 
+    void connecting_to_wifi_continues_effect(void *pvParameters)
+    {
+        for (;;)
+        {
+            if (continues_effect_connecting_to_wifi_flag)
+            {
+                for (size_t i = 0; i < NUM_LEDS / 2; i++)
+                {
+                    leds[i] = CRGB::Orange;
+                    leds[NUM_LEDS - 1 - i] = CRGB::Orange;
+
+                    FastLED.show();
+                    vTaskDelay(750);
+                    leds[i] = CRGB::Black;
+                    leds[NUM_LEDS - 1 - i] = CRGB::Black;
+                    FastLED.show();
+                    vTaskDelay(750);
+                }
+            }
+            else
+                vTaskDelay(3000);
+        }
+        vTaskDelete(NULL);
+    }
     // Blocking, until meeting is over
-    void show_color(const STATES_COLORS color)
+    void communicate_status(const STATES state)
     {
         CRGB::HTMLColorCode html_color;
-        switch (color)
+        switch (state)
         {
-        case STATES_COLORS::GETTING_CALENDAR:
+        case STATES::GETTING_CALENDAR:
             html_color = CRGB::Navy;
             break;
-        case STATES_COLORS::CONNECTING_TO_WIFI:
-            html_color = CRGB::Orange;
-            break;
-        case STATES_COLORS::CONNECTING_TO_WIFI_FAILED:
-        case STATES_COLORS::GETTING_CALENDAR_FAILED:
+        case STATES::CONNECTED_TO_WIFI:
+            html_color = CRGB::SeaGreen;
+            for (size_t i = 0; i < 2; i++)
+            {
+                FastLED.clear(true);
+                FastLED.delay(750);
+                for (size_t i = 0; i < NUM_LEDS / 2; i++)
+                {
+                    leds[i] = html_color;
+                    leds[NUM_LEDS - 1 - i] = html_color;
+                }
+                FastLED.show();
+                FastLED.delay(750);
+            }
+            return;
+        case STATES::CONNECTING_TO_WIFI_CONTINUES:
+            continues_effect_connecting_to_wifi_flag = true;
+            continues_effect_connecting_to_wifiReturned = xTaskCreate(
+                connecting_to_wifi_continues_effect,   // Function that should be called
+                "connecting_to_wifi_continues_effect", // Name of the task (for debugging)
+                10000,                                 // Stack size (bytes)
+                // (void *)&settings,    // Parameter to pass
+                NULL,
+                1,                                         // Task priority
+                &continues_effect_connecting_to_wifiHandle // Task handle
+            );
+            return;
+        case STATES::CONNECTING_TO_WIFI_FAILED:
+        case STATES::GETTING_CALENDAR_FAILED:
             html_color = CRGB::Red;
             break;
 
