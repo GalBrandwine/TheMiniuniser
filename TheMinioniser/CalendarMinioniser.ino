@@ -1,5 +1,4 @@
-
-// #include <WiFi.h>
+#include <Preferences.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp"
@@ -7,19 +6,12 @@
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/leds_tools.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/sound_tools.hpp"
+
+Preferences preferences;
+
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
 
-// the following variables are unsigned longs because the time, measured in
-// milliseconds, will quickly become a bigger number than can be stored in an int.
-unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
-// unsigned long timerDelay = 600000;
-// Set timer to 5 seconds (5000)
-unsigned long timerDelay = 5000;
-
-// const char *ssid = "Augury_Cellular";
-// const char *password = "augurysys1";
 String hostname = "Minioniser";
 
 calendar::Event events[MAX_EVENTS] = {};
@@ -45,9 +37,20 @@ void setup()
 
     ledstools::init_leds();
     soundtools::init_sound();
+    preferences.begin(hostname.c_str(), false);
+    auto stored = preferences.getString("USER_NAME", "USER_NAME_NOT_FOUND");
+    if (stored == "USER_NAME_NOT_FOUND")
+    {
+        printf("Could not found user name in preferences, storing original username: %s\n", token_data::USER_NAME.c_str());
+        preferences.putString("USER_NAME", token_data::USER_NAME);
+    }
+    else
+        token_data::USER_NAME = stored;
 
     if (wm_nonblocking)
         wm.setConfigPortalBlocking(false);
+
+    // wm.resetSettings();
 
     const char *augury_user_str = "<br><label for='auguryuserid'>Enter Augury user (prefix only, no '@augury.com')</label><br><input type='text' name='auguryuserid' <br>";
     new (&custom_field) WiFiManagerParameter(augury_user_str); // custom html input
@@ -101,11 +104,15 @@ void saveParamCallback()
     auto user = getParam("auguryuserid");
     if (user.length() > 0)
     {
-        token_data::USER_NAME = user;
-        Serial.println("PARAM augury_user = " + user);
-
         if (user == "soundtest")
+        {
             soundtools::jingle_bells();
+            return;
+        }
+
+        token_data::USER_NAME = user;
+        preferences.putString("USER_NAME", token_data::USER_NAME);
+        Serial.println("PARAM augury_user = " + user);
     }
 }
 
