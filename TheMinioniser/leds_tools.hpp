@@ -1,5 +1,6 @@
 #pragma once
-#include </home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp>
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/isr_tools.hpp"
 #include <FastLED.h>
 
 // For led chips like WS2812, which have a data line, ground, and power, you just
@@ -115,10 +116,12 @@ namespace ledstools
         }
         FastLED.show();
     };
-    void show_event_progress(calendar::Event &event)
+
+    // Blocking until event is finished or reset button is pressed
+    void show_event_progress(calendar::Event &event, const isr_tools::Button &button)
     {
 
-        while (event.time_left > 30)
+        while (event.time_left > 30 && !button.pressed)
         {
 
             auto progress_precentage = 1 - (event.time_left / event.duration);
@@ -146,7 +149,7 @@ namespace ledstools
 
         // Delay in ms
         int event_ending_blinking_delay = 1000;
-        while (event.time_left > 1)
+        while (event.time_left > 1 && !button.pressed)
         {
             // Event is 30 seconds to its end.
             // Turn the LED on, then pause

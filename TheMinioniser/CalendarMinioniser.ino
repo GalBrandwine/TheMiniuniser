@@ -6,12 +6,12 @@
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/time_tools.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/leds_tools.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/sound_tools.hpp"
+#include "/home/gal/dev/TheMiniuniser/TheMinioniser/isr_tools.hpp"
 
 Preferences preferences;
 
 // Your Domain name with URL path or IP address with path
 String serverName = "https://www.googleapis.com/calendar/v3/calendars/";
-
 String hostname = "Minioniser";
 
 calendar::Event events[MAX_EVENTS] = {};
@@ -35,8 +35,11 @@ void setup()
     Serial.begin(115200);
     delay(1000);
 
+    // Tools initiations
     ledstools::init_leds();
     soundtools::init_sound();
+    isr_tools::init_isr();
+
     preferences.begin(hostname.c_str(), false);
     auto stored = preferences.getString("USER_NAME", "USER_NAME_NOT_FOUND");
     if (stored == "USER_NAME_NOT_FOUND")
@@ -82,7 +85,7 @@ void setup()
         ledstools::communicate_status(ledstools::CONNECTED_TO_WIFI);
         Serial.println("connected...yeey :)");
         configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
-        timetools::printAndUpdateLocalTime();
+        timetools::updateLocalTime();
         ledstools::turn_off_leds();
     }
 }
@@ -118,46 +121,48 @@ void saveParamCallback()
 
 void loop()
 {
+    if (isr_tools::button1.pressed)
+    {
+        Serial.printf("Reset button has been pressed. Resetting wifi manager, rebooting\n");
+        isr_tools::button1.pressed = false;
+        wm.resetSettings();
+        ESP.restart();
+    }
+
     using namespace timetools;
+    auto is_success = updateLocalTime();
+
+    HTTPClient http;
+    String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
+    String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
+
     ledstools::turn_off_leds();
+
+    if (token_data::token_expiration_time < 0)
+    {
+        token_data::token_expiration_time = access_token::token_freshener(token_data::token);
+    }
+
     if (manually_should_fetch_calendar || calendar::should_fetch_calendar())
     {
         manually_should_fetch_calendar = false;
-        printAndUpdateLocalTime();
 
         if (WiFi.status() == WL_CONNECTED)
         {
-
-            HTTPClient http;
-
-            String timeMax = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayEndTime + "%3A00%3A00.000%2B02%3A00";   // Need to be able to change year, month,day
-            String timeMin = dateYear + "-" + dateMonth + "-" + dateDay + "T" + dayStartTime + "%3A00%3A00.000%2B02%3A00"; // Need to be able to change year, month,day
+            Serial.print("Fetching calendar serverPath: ");
             String serverPath = serverName + token_data::USER_NAME + token_data::USER_DOMAIN + "/events?q=" + token_data::USER_NAME + "&singleEvents=true&fields=items&timeMax=" + timeMax + "&timeMin=" + timeMin;
-            Serial.print("serverPath: ");
             Serial.println(serverPath);
-
             // Your Domain name with URL path or IP address with path
             http.begin(serverPath.c_str());
-
-            int httpCode{-1};
+            http.setAuthorization(token_data::token.c_str());
 
             // start connection and send HTTP header
-            if (token_data::token_expiration_time > 0)
-            {
-                httpCode = http.GET();
-                http.setAuthorization(token_data::token.c_str());
-            }
-            else
-            {
-                token_data::token_expiration_time = access_token::token_freshener(token_data::token);
-                http.setAuthorization(token_data::token.c_str());
-                httpCode = http.GET();
-            }
-
+            int httpCode{-1};
+            httpCode = http.GET();
             if (httpCode > 0)
             {
                 // HTTP header has been send and Server response header has been handled
-                Serial.printf("\n\n\n\n[HTTP] GET... code: %d\n", httpCode);
+                Serial.printf("\n[HTTP] GET... code: %d\n", httpCode);
 
                 // file found at server
                 if (httpCode == HTTP_CODE_OK)
@@ -208,7 +213,7 @@ void loop()
         {
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");
             // ledstools::simple_handle_event(events[meeting_index]);
-            ledstools::show_event_progress(events[meeting_index]);
+            ledstools::show_event_progress(events[meeting_index], isr_tools::button1);
             token_data::token_expiration_time -= events[meeting_index].duration;
             soundtools::jingle_bells();
             ledstools::turn_off_leds();

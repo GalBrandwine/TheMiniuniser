@@ -16,19 +16,20 @@ namespace timetools
 
     // Update Local time using NTP server
     // Update query day,month,year time-variables
-    void printAndUpdateLocalTime()
+    bool updateLocalTime()
     {
         struct tm timeinfo;
         if (!getLocalTime(&timeinfo))
         {
             Serial.println("Failed to obtain time");
-            return;
+            return false;
         }
-        Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+        // Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
         dateDay = String(timeinfo.tm_mday);
         dateMonth = String(1 + timeinfo.tm_mon); // 0-11
         dateYear = String(1900 + timeinfo.tm_year);
-        printf("Updated query day\\month\\year: %s\\%s\\%s\n", dateDay.c_str(), dateMonth.c_str(), dateYear.c_str());
+        return true;
+        // printf("Updated query day\\month\\year: %s\\%s\\%s\n", dateDay.c_str(), dateMonth.c_str(), dateYear.c_str());
     };
 
     /*
@@ -47,14 +48,13 @@ namespace timetools
         for (size_t i = 0; i < today_num_of_events; i++)
         {
 
-
             auto secs_since_start_time = difftime(mktime(&timeinfo), mktime(&events[i].start));
             auto secs_until_end_time = difftime(mktime(&timeinfo), mktime(&events[i].end)); // If end time is in the future this will result in negative number.
 
             if (secs_since_start_time >= 0 && secs_until_end_time < 0)
             {
 
-                printf("Were in an event\n");
+                printf("There's an event going on right now\n");
                 if (events[i].accepted)
                 {
                     printf("Were participating this event\n");
