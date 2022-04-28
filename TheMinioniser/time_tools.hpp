@@ -10,9 +10,28 @@ namespace timetools
     String dateYear = "2022";
 
     // Ntp information
-    const char *ntpServer = "pool.ntp.org";
-    const long gmtOffset_sec = 2 * 60 * 60;
-    const int daylightOffset_sec = 3600;
+    void setTimezone(const String &timezone)
+    {
+        Serial.printf("  Setting Timezone to %s\n", timezone.c_str());
+        setenv("TZ", timezone.c_str(), 1); //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+        tzset();
+    }
+
+    void initTime(const String &timezone)
+    {
+        struct tm timeinfo;
+
+        Serial.println("Setting up time");
+        configTime(0, 0, "pool.ntp.org"); // First connect to NTP server, with 0 TZ offset
+        if (!getLocalTime(&timeinfo))
+        {
+            Serial.println("  Failed to obtain time");
+            return;
+        }
+        Serial.println("  Got the time from NTP");
+        // Now we can set the real timezone
+        setTimezone(timezone);
+    }
 
     // Update Local time using NTP server
     // Update query day,month,year time-variables
@@ -24,12 +43,11 @@ namespace timetools
             Serial.println("Failed to obtain time");
             return false;
         }
-        // Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+        Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
         dateDay = String(timeinfo.tm_mday);
         dateMonth = String(1 + timeinfo.tm_mon); // 0-11
         dateYear = String(1900 + timeinfo.tm_year);
         return true;
-        // printf("Updated query day\\month\\year: %s\\%s\\%s\n", dateDay.c_str(), dateMonth.c_str(), dateYear.c_str());
     };
 
     /*

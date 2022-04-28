@@ -64,12 +64,16 @@ namespace calendar
             stream->find("dateTime\": ");
 
             event_out.start_str = stream->readStringUntil('+'); // Cut the +02:00 GMT offset
-
+            event_out.start_str += getenv("TZ");
             // I want to replace the "T" that is stuck between date and time, with a space
             // the ASCII code for a blank space is the decimal number 32, or the binary number 0010 00002.
             event_out.start_str.setCharAt(11, 32);
 
-            memset(&event_out.start, 0, sizeof(event_out.start)); // tm initialization
+            if (!getLocalTime(&event_out.start))
+            {
+                Serial.println("Failed to obtain time");
+                return;
+            }
 
             auto ret = strptime(event_out.start_str.c_str(), "\"%Y-%m-%d %H:%M:%S", &event_out.start);
             if (ret == NULL)
@@ -88,12 +92,16 @@ namespace calendar
         {
             stream->find("dateTime\": ");
             event_out.end_str = stream->readStringUntil('+'); // Cut the +02:00 GMT offset
-
+            event_out.end_str += getenv("TZ");
             // I want to replace the "T" that is stuck between date and time, with a space
             // the ASCII code for a blank space is the decimal number 32, or the binary number 0010 00002.
             event_out.end_str.setCharAt(11, 32);
 
-            memset(&event_out.end, 0, sizeof(event_out.end)); // tm initialization
+            if (!getLocalTime(&event_out.end))
+            {
+                Serial.println("Failed to obtain time");
+                return;
+            }
 
             auto ret = strptime(event_out.end_str.c_str(), "\"%Y-%m-%d %H:%M:%S", &event_out.end);
             if (ret == NULL)

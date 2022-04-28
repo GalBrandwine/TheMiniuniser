@@ -84,7 +84,7 @@ void setup()
         // if you get here you have connected to the WiFi
         ledstools::communicate_status(ledstools::CONNECTED_TO_WIFI);
         Serial.println("connected...yeey :)");
-        configTime(timetools::gmtOffset_sec, timetools::daylightOffset_sec, timetools::ntpServer);
+        timetools::initTime("IST-2IDT,M3.4.4/26,M10.5.0"); // Taken from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
         timetools::updateLocalTime();
         ledstools::turn_off_leds();
     }
