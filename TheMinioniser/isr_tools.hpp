@@ -1,5 +1,9 @@
 #pragma once
 #include <Esp.h>
+
+/*
+Reset button uses GPIO 2 and GND
+*/
 namespace isr_tools
 {
 

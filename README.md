@@ -2,6 +2,10 @@
 
 A friendly & helpful google-calendar meeting tracker
 
-## Possible errors:
+## Pinout
 
-1. 
+|Component|PIN|
+|---|---|
+|Reset button|2|
+|Leds|12|
+|Speaker|13|
