@@ -1,5 +1,5 @@
 #include <Preferences.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager
 #include <HTTPClient.h>
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/acces_token.hpp"
 #include "/home/gal/dev/TheMiniuniser/TheMinioniser/calendar_parsers.hpp"
@@ -150,7 +150,7 @@ void loop()
         if (WiFi.status() == WL_CONNECTED)
         {
             Serial.print("Fetching calendar serverPath: ");
-            String serverPath = serverName + token_data::USER_NAME + token_data::USER_DOMAIN + "/events?q=" + token_data::USER_NAME + "&singleEvents=true&fields=items&timeMax=" + timeMax + "&timeMin=" + timeMin;
+            String serverPath = serverName + token_data::USER_CALENDAR + token_data::USER_DOMAIN + "/events?q=" + token_data::USER_NAME + "&singleEvents=true&fields=items&timeMax=" + timeMax + "&timeMin=" + timeMin;
             Serial.println(serverPath);
             // Your Domain name with URL path or IP address with path
             http.begin(serverPath.c_str());
@@ -208,7 +208,7 @@ void loop()
     else if (today_num_of_events > 0)
     {
         printf("Its not time to fetch calendar, check if Im in a meeting right Now\n");
-        auto meeting_index = get_currently_ocuring_accepted_meeting(events, today_num_of_events);
+        auto meeting_index = get_currently_occurring_accepted_meeting(events, today_num_of_events);
         if (meeting_index > -1)
         {
             printf("Im inside a meeting, time to track meeting duration and light up leds accordingly :)\n");

@@ -53,7 +53,7 @@ namespace timetools
     /*
     return the index of an currently happening accepted event, -1 otherwise
     */
-    int get_currently_ocuring_accepted_meeting(calendar::Event events[], int today_num_of_events)
+    int get_currently_occurring_accepted_meeting(calendar::Event events[], int today_num_of_events)
     {
         struct tm timeinfo;
         if (!getLocalTime(&timeinfo))
